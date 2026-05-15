@@ -5,88 +5,42 @@ from munkres import Munkres
 from sklearn import metrics
 import torch
 import os
+import numpy as np
 
 device = torch.device("cpu")
 
-from sklearn.cluster import KMeans
-import torch
-import numpy as np
-
-
-
-
-def get_pseudo_labels_from_z(model, inx, n_clusters, device, sigma=0.0):
-    """
-    用当前模型在整图上前向一次，得到 z1,z2，
-    用它们的平均做 KMeans，返回 [N] 的伪标签（numpy）
-    """
-    model.eval()
-    with torch.no_grad():
-        eval_output = model(inx, is_train=False)
-        hidden_emb = eval_output['embedding']  # [N, d]
-
-    hidden_np = hidden_emb.cpu().numpy()
-
-    kmeans = KMeans(n_clusters=n_clusters, n_init=10).fit(hidden_np)
-    pseudo_labels_sp = kmeans.labels_  # [N], 超像素级标签
-    return pseudo_labels_sp
-
-
-
-
 
 def get_model_class(model_name):
-    """
-    根据参数返回对应的模型类
-    """
-
-    if model_name =='my_model':
+    if model_name == 'my_model':
         from my_model import UnifiedHSIClusteringModel
         return UnifiedHSIClusteringModel
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
-# 如果你的 LDA_SLIC 文件都在同一个目录下，可以直接 import
-# 如果它们只是文件名不同，建议用这种方式动态选择
-def run_superpixel_segmentation(dataset_name, input_numpy, gt_hsi, num_classes, scale):
-    """
-    根据数据集名称动态加载对应的 SLIC 模块并执行分割
-    """
 
-    # -----------------------------------------------------------
-    # 在这里根据 dataset_name 选择对应的模块
-    # -----------------------------------------------------------
+def run_superpixel_segmentation(dataset_name, input_numpy, gt_hsi, num_classes, scale):
     if dataset_name == 'PaviaU':
         import LDA_SLIC_PU as SLIC_Module
     else:
-        # 默认情况或者报错
-        raise ValueError(f"未找到数据集 {dataset_name} 对应的 LDA_SLIC 模块")
+        raise ValueError(f"Dataset {dataset_name} not supported")
 
     print(f"Executing SLIC segmentation for {dataset_name}...")
 
-    # 实例化 (假设所有模块的类名和参数接口都是一致的)
     ls = SLIC_Module.LDA_SLIC(input_numpy, gt_hsi, num_classes - 1)
-
-    # 执行分割
     Q, S, A, Edge_index, Edge_atter, Seg, A_ones = ls.simple_superpixel(scale)
 
     return Q, S, A, Edge_index, Edge_atter, Seg, A_ones
 
 
-
-
-
-#############################
 def normalize(data):
     height, width, bands = data.shape
     data = np.reshape(data, [height * width, bands])
     minMax = preprocessing.StandardScaler()
-    data = minMax.fit_transform(data)  # 计算训练数据的均值和方差，还会基于计算出来的均值和方差来转换训练数据，从而把数据转换成标准的正太分布
+    data = minMax.fit_transform(data)
     data = np.reshape(data, [height, width, bands])
     return data
 
 
-################get data######################################################################################################################
 def load_dataset(Dataset):
     hyper_dir = r"D:\DataSets_eus"
 
@@ -99,8 +53,8 @@ def load_dataset(Dataset):
         VALIDATION_SPLIT = 0.995
         TRAIN_SIZE = math.ceil(TOTAL_SIZE * VALIDATION_SPLIT)
 
-
     return data_hsi, gt_hsi, TOTAL_SIZE, TRAIN_SIZE, VALIDATION_SPLIT
+
 
 def sampling(proportion, ground_truth, CLASSES_NUM):
     train = {}
@@ -110,10 +64,9 @@ def sampling(proportion, ground_truth, CLASSES_NUM):
     labels_loc = {}
     for i in range(CLASSES_NUM):
         indexes = np.argwhere(ground_truth == (i + 1))
-        np.random.shuffle(indexes)  # 打乱顺序
+        np.random.shuffle(indexes)
         labels_loc[i] = indexes
         if proportion != 1:
-
             if indexes.shape[0] <= 60:
                 nb_val = 15
             else:
@@ -132,7 +85,7 @@ def sampling(proportion, ground_truth, CLASSES_NUM):
         test_indexes = np.concatenate((test_indexes, test[i + 1]), axis=0)
     np.random.shuffle(train_indexes)
     np.random.shuffle(test_indexes)
-    return train_indexes, test_indexes, train_num, test_num  # 返回训练集和测试集的索引
+    return train_indexes, test_indexes, train_num, test_num
 
 
 def get_label(indices, gt_hsi):
@@ -153,33 +106,27 @@ def get_data(dataset):
     return data_hsi, CLASSES_NUM, y_true, gt, gt_hsi
 
 
-
 def spixel_to_pixel_labels(sp_level_label, association_mat):
     sp_level_label = np.reshape(sp_level_label, (-1, 1))
     pixel_level_label = np.matmul(association_mat, sp_level_label).reshape(-1)
     return pixel_level_label.astype('int')
 
+
 def purity_score(y_true, y_pred):
-
     contingency_matrix = metrics.cluster.contingency_matrix(y_true, y_pred)
-
     return np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix)
 
+
 def class_acc(y_true, y_pre):
-    """
-    calculate each class's acc
-    :param y_true:
-    :param y_pre:
-    :return:
-    """
     ca = []
     for c in np.unique(y_true):
-        y_c = y_true[np.nonzero(y_true == c)]  # find indices of each classes
+        y_c = y_true[np.nonzero(y_true == c)]
         y_c_p = y_pre[np.nonzero(y_true == c)]
         acurracy = metrics.accuracy_score(y_c, y_c_p)
         ca.append(acurracy)
     ca = np.array(ca)
     return ca
+
 
 def cluster_accuracy(y_true, y_pre, return_aligned=False):
     y_true = y_true.astype('float32')
@@ -205,7 +152,6 @@ def cluster_accuracy(y_true, y_pre, return_aligned=False):
     for i in range(nClass2):
         y_best[y_pre == Label2[i]] = Label1[c[i]]
 
-    # # calculate accuracy
     err_x = np.sum(y_true[:] != y_best[:])
     missrate = err_x.astype(float) / (y_true.shape[0])
     acc = 1. - missrate
@@ -219,6 +165,7 @@ def cluster_accuracy(y_true, y_pre, return_aligned=False):
         return y_best, acc, kappa, nmi, ari, pur, ca
     return acc, kappa, nmi, ari, pur, ca
 
+
 def scipy_to_torch_sparse(coo_mat, device):
     coo_mat = coo_mat.tocoo()
     indices = torch.tensor(
@@ -229,5 +176,3 @@ def scipy_to_torch_sparse(coo_mat, device):
     values = torch.tensor(coo_mat.data, dtype=torch.float32, device=device)
     L = torch.sparse_coo_tensor(indices, values, size=coo_mat.shape).coalesce()
     return L
-
-

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="SLCGC" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="SLCGC">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/data/gp/project/Efficient-Self-supervised-Low-pass-Contrastive-Graph-Clustering-with-Non-convolution--main" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="dell@10.193.199.21:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="ecs-user@47.100.224.164:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="lab126@10.193.127.207:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>
